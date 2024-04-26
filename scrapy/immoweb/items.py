@@ -50,4 +50,7 @@ class ImmowebItem(scrapy.Item):
                 'Parking count inside': scrapy.Field(),
                 'Parking count outside': scrapy.Field(),
                 'url': scrapy.Field(),
+                'Latitude': scrapy.Field(),
+                'Longitude': scrapy.Field(),
+                'Consumption': scrapy.Field(),
         }

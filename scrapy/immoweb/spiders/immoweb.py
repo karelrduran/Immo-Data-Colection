@@ -2,13 +2,14 @@ import json
 import logging
 import os
 import traceback
+from pprint import pprint
 
 import scrapy
 
 from scrapy.exceptions import CloseSpider
 
 from immoweb.items import ImmowebItem
-from immoweb.utils import get_data_from_html, get_data, next_page, get_property_url
+from immoweb.utils import get_data_from_html, get_data, next_page, get_property_url, safeget
 
 
 class ImmoSpider(scrapy.Spider):
@@ -84,6 +85,25 @@ class ImmoSpider(scrapy.Spider):
                 errback=self.errback,
             )
 
+    # def parse_group_property(self, response, raw_data):
+    #     logging.info('STASTING GROUP' * 5)
+    #     logging.info('\t\t' + 'Property is a group' + ' url:' + response.url)
+    #     sub_properties = safeget(raw_data, ['cluster', 'units', 'items'], default=[])
+    #     if not sub_properties:
+    #         logging.warning('\t\tNo sub properties found')
+    #     for sub_property in sub_properties:
+    #         if sub_property.get('saleStatus', 'SOLD') == 'SOLD':
+    #             logging.info('\t\t' + 'Property is sold' + ' id:' + sub_property["id"])
+    #             continue
+    #         url = f'https://www.immoweb.be/en/classified/{sub_property["id"]}'
+    #         yield scrapy.Request(  # load a search list and call back parse_my_search_lists
+    #             url,
+    #             # when the response is received for url, the parse_page_search_result_list
+    #             # function is called and the response object is passed as an argument
+    #             callback=self.parse_property,
+    #             errback=self.errback,
+    #         )
+
     async def parse_property(self, response):
         """
         it receives the responses that are made by the parse_page_search_result_list function,
@@ -96,9 +116,31 @@ class ImmoSpider(scrapy.Spider):
         raw_data = get_data_from_html(response.text)
         try:
             cleaned_data = get_data(raw_data)
-            # yield an ImmowebItem
-            logging.info('\t\t' + 'YIELD' * 5 + ' url:' + response.url)
-            yield ImmowebItem(**cleaned_data, url=response.url)
+            sale_type = safeget(raw_data, ['property', 'type'], default='')
+            # logging.info("type of sale: " + sale_type + " type:" + type(sale_type).__name__)
+            if '_GROUP' in sale_type:
+                logging.info("type of sale: " + sale_type + 'calling: parse_group_property')
+                units = safeget(raw_data, ['cluster', 'units'], default=[])
+                sub_properties = []
+                if units:
+                    sub_properties = safeget(units[0], ['items'], default=[])
+                for sub_property in sub_properties:
+                    if sub_property.get('saleStatus', 'SOLD') == 'SOLD':
+                        logging.info('\t\t' + 'Property is sold' + ' id:' + str(sub_property["id"]))
+                        continue
+                    url = f'https://www.immoweb.be/en/classified/{sub_property["id"]}'
+                    logging.info(f'\tloading sub property url: {url}')
+                    yield scrapy.Request(  # load a search list and call back parse_my_search_lists
+                        url,
+                        # when the response is received for url, the parse_page_search_result_list
+                        # function is called and the response object is passed as an argument
+                        callback=self.parse_property,
+                        errback=self.errback,
+                    )
+            else:
+                # yield an ImmowebItem
+                logging.info('\t\t' + 'YIELD' * 5 + ' url:' + response.url)
+                yield ImmowebItem(**cleaned_data, url=response.url)
         except Exception as e:
             # get the full error message
             full_traceback = traceback.format_exc()
@@ -118,7 +160,8 @@ class ImmoSpider(scrapy.Spider):
                 f.writelines('\n' + response.url)
 
             # raise an exception to stop the spider
-            raise CloseSpider(reason=f'Error, stopping the spider. look at dump file: {error_dump_path}')
+            # raise CloseSpider(reason=f'Error, stopping the spider. look at dump file: {error_dump_path}')
+            logging.error(f'Error, stopping the spider. look at dump file: {error_dump_path}')
 
         logging.info(f"\t\t#{self.counter} id: {cleaned_data.get('ID')} price: {cleaned_data.get('Price')} location: {cleaned_data.get('Locality')}")
 

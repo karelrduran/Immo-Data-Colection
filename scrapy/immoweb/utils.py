@@ -95,7 +95,10 @@ def get_data(data: dict) -> dict:
         'Sea view': safeget(data, ["property", "location", "hasSeaView"], default=None),
         'Parking count inside': safeget(data, ["property", "parkingCountIndoor"], default=None),
         'Parking count outside': safeget(data, ["property", "parkingCountOutdoor"], default=None),
-        'Room Count': 0
+        'Room Count': 0,
+        'Latitude': safeget(data, ["property", "location", "latitude"], default=None),
+        'Longitude': safeget(data, ["property", "location", "longitude"], default=None),
+        'Consumption': safeget(data, ["transaction", "certificates", "primaryEnergyConsumptionPerSqm"], default=None),
     }
 
     new_data['Room Count'] += new_data['Bedroom Count'] if new_data['Bedroom Count'] else 0

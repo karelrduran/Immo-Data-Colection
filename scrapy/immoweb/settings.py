@@ -23,6 +23,8 @@ FEEDS = {
     },
 }
 
+DUPEFILTER_CLASS = 'scrapy.dupefilters.RFPDupeFilter'
+
 # set log level to info, debug is too verbose
 LOG_LEVEL = 'INFO'
 
